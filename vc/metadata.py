@@ -14,14 +14,14 @@ class CreateMetadata:
 
     def write_metadata(self):
         # train metadata 작성
-        f = open("./vc/Data/p" + str(self.user_id) + "train_list.txt", 'a')  # test 아닐 때는'w'-> 'a'로 수정해야함
+        f = open("./vc/Data/p" + str(self.user_id) + "/train_list.txt", 'a')  # test 아닐 때는'w'-> 'a'로 수정해야함
         for i in range(1, 71):
             data = "\n./vc/Data/p%s/%d.wav|20" % (self.user_id, i)
             f.write(data)
         f.close()
 
         # validation metadata 작성
-        f = open("./vc/Data/p" + str(self.user_id) + "val_list.txt", 'a')
+        f = open("./vc/Data/p" + str(self.user_id) + "/val_list.txt", 'a')
         for i in range(70, 81):
             data = "\n./vc/Data/p%s/%d.wav|20" % (self.user_id, i)
             f.write(data)

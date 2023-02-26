@@ -8,6 +8,7 @@ import os
 import shutil
 import soundfile as sf
 import json
+from pydub import AudioSegment
 
 from utils import TextAudioLoader
 
@@ -44,11 +45,17 @@ def tts():
 @app.route("/put_data", methods=["POST"])
 def put_data():
     req = dict(request.form)
-
+    audio = request.form.get("audio")
+    print(bytearray(audio.encode()))
+    #print(bytearray(audio.encode()))
+ 
+    s = io.BytesIO(audio.encode())
+    AudioSegment.from_file(s).export(save_path+'/'+str(text_id)+'.wav', 2, 24000, 1)
+    
     data = json.loads(req['data'])
 
-    user_id = data['user_id']
-    text_id = data['text_id']
+    user_id = data['userId']
+    text_id = data['textId']
     save_path = './vc/Data/p' + str(user_id)
 
     if not os.path.isdir(save_path):
@@ -59,20 +66,21 @@ def put_data():
 
     #data, samplerate = sf.read(io.BytesIO(au))
     #sf.write(save_path + '/' + str(text_id) + '.wav', data, 24000)
-    with open(save_path + '/' + str(text_id) + '.wav', mode='wb') as f:
-        f.write(bytearray(req['audio'].encode()))
+
+    #with open(save_path + '/' + str(text_id) + '.wav', mode='wb') as f:
+    #    f.write(bytearray(audio.encode()))
 
     #input = request.files['audio']
     #input.save(save_path + '/' + str(text_id) + '.wav')
 
-    response = {"text_id": text_id}
+    response = {"textId": text_id}
     return jsonify(response), 200
 
 
 @app.route("/train", methods=["POST"])
 def train():
     params = request.get_json()
-    user_id = params['user_id']
+    user_id = params['userId']
 
     #model dir 생성
     model_dst = './vc/Models/p' + str(user_id)
@@ -87,7 +95,7 @@ def train():
 
     Train(user_id).train()
 
-    response = {"message": "training"}
+    response = {"userId": user_id, "isRegistered": True}
     return jsonify(response), 200
 
 if __name__ == '__main__':
