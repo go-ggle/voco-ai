@@ -117,7 +117,7 @@ class Inference:
 
 
         # load input wave
-        selected_speakers = [243, 244, 236, 233, 230, 228, 400, 1] 
+        selected_speakers = [243, 244, 236, 233, 230, 228, 400, 1] #TODO: self.user_id로 수정
         #k = random.choice(selected_speakers)
         #audio, source_sr = librosa.load(self.input_audio, sr=24000)
         audio = self.input_audio
@@ -170,6 +170,8 @@ class Inference:
         print('total processing time: %.3f sec' % (end - start))
 
         for key, wave in converted_samples.items():
+            if key==user_id:
+                return wave
             sf.write(output_path+"/converted_"+key+".wav", wave, 24000)
             if reconstructed_samples[key] is not None:
                 sf.write(output_path+"/reference_"+key+".wav",
