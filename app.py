@@ -18,6 +18,8 @@ from vc.metadata import CreateMetadata
 from vc.train import Train
 from vc.vc_inference import Inference
 
+from storages import upload_file 
+
 app = Flask(__name__)
 api = Api(app)
 
@@ -28,14 +30,21 @@ def tts():
     params = request.get_json()
     language_id = int(params['language'])
     text = params['text']
-    user_id = params['user']
+    user_id = params['userId']
+    project_id = params['projectId']
+    block_id = params['blockId']
     
     np_audio = TextAudioLoader(language_id, text).audio
-    Inference(np_audio, user_id).inference()
+    wave = Inference(np_audio, user_id).inference()
     #save it to BytesIO object(buffer for bytes object)
+   
     #bytes_wav = bytes()
-    #byte_io = io.BytesIO(bytes_wav)
-    #write(byte_io, 24000, np_audio.audio[::])
+    #wav_object = io.BytesIO(bytes_wav)
+    #write(wav_object, 24000, wave.audio[::])
+
+    upload_file(wave, user_id, project_id, block_id)
+    
+    #TODO: 프로젝트 음성 수정
 
     #return wav file
     #return send_file(byte_io, mimetype="audio/x-wav")

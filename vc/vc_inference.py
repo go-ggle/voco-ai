@@ -169,13 +169,14 @@ class Inference:
         end = time.time()
         print('total processing time: %.3f sec' % (end - start))
 
+        #return converted_samples['p'+str(self.user_id)]
+
         for key, wave in converted_samples.items():
-            if key==user_id:
-                return wave
             sf.write(output_path+"/converted_"+key+".wav", wave, 24000)
             if reconstructed_samples[key] is not None:
-                sf.write(output_path+"/reference_"+key+".wav",
-                         reconstructed_samples[key], 24000)
+                sf.write(output_path+"/reference_"+key+".wav", reconstructed_samples[key], 24000)
+
+        return converted_samples['p'+str(self.user_id)]
 
     #sf.write(output_path+"/original.wav", wav_path, 24000)
 
