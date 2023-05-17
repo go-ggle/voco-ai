@@ -1,6 +1,4 @@
-from flask import Flask, jsonify, request, send_file
-from flask_restx import Api
-from scipy.io.wavfile import write
+from scipy.io.wavfile import write, read
 
 import sys
 import io
@@ -8,6 +6,7 @@ import os
 import shutil
 import soundfile as sf
 import json
+import linecache
 from pydub import AudioSegment
 
 from utils import TextAudioLoader
@@ -18,24 +17,54 @@ from vc.metadata import CreateMetadata
 from vc.train import Train
 from vc.vc_inference import Inference
 
+import speech_recognition as sr
+import librosa
+import spacy
+import wave
+from pydub import AudioSegment
+import numpy as np
+from storages import upload_file
+
 app = Flask(__name__)
 api = Api(app)
 
-@app.route("/tts", methods=["POST"])        
+@app.route("/test", methods=["POST"])
+def test():
+    print("test")
+    params = request.get_json()
+    language_id = params['language']
+    text = params['text']
+
+    np_audio = TextAudioLoader(language_id, text).audio
+
+    upload_file(np_audio, 1, 1, 1)
+
+    return None;
+
+@app.route("/tts", methods=["POST"])
 def tts():
     #numpy array representing the audio data
     print("tts")
     params = request.get_json()
     language_id = int(params['language'])
+    print(language_id)
     text = params['text']
-    user_id = params['user']
-    
-    np_audio = TextAudioLoader(language_id, text).audio
-    Inference(np_audio, user_id).inference()
-    #save it to BytesIO object(buffer for bytes object)
-    #bytes_wav = bytes()
-    #byte_io = io.BytesIO(bytes_wav)
-    #write(byte_io, 24000, np_audio.audio[::])
+    user_id = int(params['voiceId'])
+    team_id = request.args.get("teamId")
+    project_id = request.args.get("projectId")
+    block_id = request.args.get("blockId")
+
+    tts = TextAudioLoader(language_id, text).audio
+    filename = str(block_id) + ".wav"
+    tts.save(str(filename))
+
+    audio, source_sr  = librosa.load(block_id + ".wav", sr=24000)
+    audio = audio / np.max(np.abs(audio))
+    audio.dtype = np.float32
+    wave_audio = Inference(audio, user_id).inference()
+
+    os.remove(str(block_id + '.wav'))
+    upload_file(wave_audio, user_id, team_id, project_id, block_id)
 
     #return wav file
     #return send_file(byte_io, mimetype="audio/x-wav")
@@ -55,21 +84,18 @@ def put_data():
         audio_text = recognizer.listen(source)
     stt_text = recognizer.recognize_google(audio_text)
     print(stt_text)
-    
     text_id = request.args.get("textId")
     train_text = linecache.getline("train.txt", int(text_id))
-    print(train_text)
-
     nlp = spacy.load("en_core_web_md")
     doc1 = nlp(stt_text.lower())
     doc2 = nlp(train_text.lower())
-    similarity = doc1.similarity(doc2)
     print(similarity)
 
     if similarity < 0.8:
-        return jsonify("유사도 통과 실패"), 205
+        return jsonify("유사도 통과 몬함"), 205
 
     user_id = request.args.get("userId")
+    text_id = request.args.get("textId")
     save_path = './vc/Data/p' + str(user_id)
 
     if not os.path.isdir(save_path):
@@ -80,7 +106,6 @@ def put_data():
 
     audio.save(save_path + "/" + text_id + ".wav")
     #s = io.BytesIO(audio.encode())
-    #AudioSegment.from_file(s).export(save_path+'/'+str(text_id)+'.wav', 2, 24000, 1)
 
     #data, samplerate = sf.read(io.BytesIO(au))
     #sf.write(save_path + '/' + str(text_id) + '.wav', data, 24000)
@@ -95,10 +120,21 @@ def put_data():
     return jsonify(response), 200
 
 
+@app.route("/audios", methods=["GET"])
+def get_audio():
+    user_id = request.args.get("user_id")
+    text_id = request.args.get("text_id")
+    file_path = 'vc/Data/p' + str(user_id) + '/' + str(text_id) + '.wav'
+    print(file_path)
+    if(os.path.exists(file_path) == False):
+        return Response("파일 없음", status=404)
+
+    return send_file('vc/Data/p' + str(user_id) + '/' + str(text_id) + '.wav')
+
+
 @app.route("/train", methods=["POST"])
 def train():
-    params = request.get_json()
-    user_id = params['userId']
+    user_id = request.args.get("user_id")
 
     #model dir 생성
     model_dst = './vc/Models/p' + str(user_id)
@@ -107,7 +143,7 @@ def train():
     #config dir 생성
     config_dst = './vc/Configs/p' + str(user_id)
     os.makedirs(config_dst, exist_ok=True)
-    shutil.copy('./vc/Configs/config.yml', config_dst) 
+    shutil.copy('./vc/Configs/config.yml', config_dst)
 
     CreateMetadata(user_id).write_metadata()
 
@@ -116,6 +152,6 @@ def train():
     response = {"userId": user_id, "isRegistered": True}
     return jsonify(response), 200
 
+
 if __name__ == '__main__':
     app.run(host='192.168.0.6', port=5000, debug=True)
-
