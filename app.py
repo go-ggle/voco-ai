@@ -45,17 +45,31 @@ def tts():
 @app.route("/put_data", methods=["POST"])
 def put_data():
     req = dict(request.form)
-    audio = request.form.get("audio")
-    print(bytearray(audio.encode()))
-    #print(bytearray(audio.encode()))
- 
-    s = io.BytesIO(audio.encode())
-    AudioSegment.from_file(s).export(save_path+'/'+str(text_id)+'.wav', 2, 24000, 1)
-    
-    data = json.loads(req['data'])
+    audio = request.files['file']
+    print(type(audio))
 
-    user_id = data['userId']
-    text_id = data['textId']
+    #STT
+    recognizer = sr.Recognizer()
+
+    with sr.AudioFile(audio) as source:
+        audio_text = recognizer.listen(source)
+    stt_text = recognizer.recognize_google(audio_text)
+    print(stt_text)
+    
+    text_id = request.args.get("textId")
+    train_text = linecache.getline("train.txt", int(text_id))
+    print(train_text)
+
+    nlp = spacy.load("en_core_web_md")
+    doc1 = nlp(stt_text.lower())
+    doc2 = nlp(train_text.lower())
+    similarity = doc1.similarity(doc2)
+    print(similarity)
+
+    if similarity < 0.8:
+        return jsonify("유사도 통과 실패"), 205
+
+    user_id = request.args.get("userId")
     save_path = './vc/Data/p' + str(user_id)
 
     if not os.path.isdir(save_path):
@@ -64,11 +78,15 @@ def put_data():
         shutil.copy('./vc/Data/train_list.txt', save_path)
         shutil.copy('./vc/Data/val_list.txt', save_path)
 
+    audio.save(save_path + "/" + text_id + ".wav")
+    #s = io.BytesIO(audio.encode())
+    #AudioSegment.from_file(s).export(save_path+'/'+str(text_id)+'.wav', 2, 24000, 1)
+
     #data, samplerate = sf.read(io.BytesIO(au))
     #sf.write(save_path + '/' + str(text_id) + '.wav', data, 24000)
 
     #with open(save_path + '/' + str(text_id) + '.wav', mode='wb') as f:
-    #    f.write(bytearray(audio.encode()))
+    #    f.write(audio)
 
     #input = request.files['audio']
     #input.save(save_path + '/' + str(text_id) + '.wav')
