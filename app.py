@@ -9,8 +9,6 @@ import json
 import linecache
 from pydub import AudioSegment
 
-from utils import TextAudioLoader
-
 from vc import *
 from vc import Utils
 from vc.metadata import CreateMetadata
@@ -18,43 +16,32 @@ from vc.train import Train
 from vc.vc_inference import Inference
 
 import speech_recognition as sr
+from gtts import gTTS
+
 import librosa
 import spacy
 import wave
 from pydub import AudioSegment
 import numpy as np
+
 from storages import upload_file
 
 app = Flask(__name__)
 api = Api(app)
-
-@app.route("/test", methods=["POST"])
-def test():
-    print("test")
-    params = request.get_json()
-    language_id = params['language']
-    text = params['text']
-
-    np_audio = TextAudioLoader(language_id, text).audio
-
-    upload_file(np_audio, 1, 1, 1)
-
-    return None;
 
 @app.route("/tts", methods=["POST"])
 def tts():
     #numpy array representing the audio data
     print("tts")
     params = request.get_json()
-    language_id = int(params['language'])
-    print(language_id)
+    language = params['language']
     text = params['text']
     user_id = int(params['voiceId'])
     team_id = request.args.get("teamId")
     project_id = request.args.get("projectId")
     block_id = request.args.get("blockId")
 
-    tts = TextAudioLoader(language_id, text).audio
+    tts = gTTS(text=text, lang=language)
     filename = str(block_id) + ".wav"
     tts.save(str(filename))
 
@@ -95,7 +82,6 @@ def put_data():
         return jsonify("유사도 통과 몬함"), 205
 
     user_id = request.args.get("userId")
-    text_id = request.args.get("textId")
     save_path = './vc/Data/p' + str(user_id)
 
     if not os.path.isdir(save_path):
