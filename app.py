@@ -36,7 +36,7 @@ api = Api(app)
 def tts():
     #numpy array representing the audio data
     print("tts")
-    languages = ['en', 'en', 'ko', 'zh-CN', 'ja', 'fr']  
+    languages = ['en', 'en', 'ge', 'zh-CN', 'ja', 'fr', 'it', 'es', 'ar', 'ru', 'hi', 'id'] 
     
     params = request.get_json()
     language_id = int(params['language'])
