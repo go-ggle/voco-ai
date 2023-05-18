@@ -1,4 +1,7 @@
+from flask import Flask, jsonify, request, send_file
+from flask_restx import Api
 from scipy.io.wavfile import write, read
+from torch import nn
 
 import sys
 import io
@@ -33,9 +36,13 @@ api = Api(app)
 def tts():
     #numpy array representing the audio data
     print("tts")
+    languages = ['en', 'en', 'ko', 'zh-CN', 'ja', 'fr']  
+    
     params = request.get_json()
-    language = params['language']
+    language_id = int(params['language'])
+    language = languages[language_id]
     text = params['text']
+
     user_id = int(params['voiceId'])
     team_id = request.args.get("teamId")
     project_id = request.args.get("projectId")
@@ -44,13 +51,13 @@ def tts():
     tts = gTTS(text=text, lang=language)
     filename = str(block_id) + ".wav"
     tts.save(str(filename))
-
+    
     audio, source_sr  = librosa.load(block_id + ".wav", sr=24000)
     audio = audio / np.max(np.abs(audio))
     audio.dtype = np.float32
     wave_audio = Inference(audio, user_id).inference()
-
     os.remove(str(block_id + '.wav'))
+    
     upload_file(wave_audio, user_id, team_id, project_id, block_id)
 
     #return wav file
@@ -60,9 +67,8 @@ def tts():
 
 @app.route("/put_data", methods=["POST"])
 def put_data():
-    req = dict(request.form)
-    audio = request.files['file']
-    print(type(audio))
+    req = dict(request.files)
+    audio = req['file']
 
     #STT
     recognizer = sr.Recognizer()
@@ -73,9 +79,11 @@ def put_data():
     print(stt_text)
     text_id = request.args.get("textId")
     train_text = linecache.getline("train.txt", int(text_id))
+    
     nlp = spacy.load("en_core_web_md")
     doc1 = nlp(stt_text.lower())
     doc2 = nlp(train_text.lower())
+    similarity = doc1.similarity(doc2)
     print(similarity)
 
     if similarity < 0.8:
@@ -140,4 +148,4 @@ def train():
 
 
 if __name__ == '__main__':
-    app.run(host='192.168.0.6', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

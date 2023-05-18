@@ -9,6 +9,7 @@ import torchaudio
 import librosa
 import argparse
 from pathlib import Path
+from scipy.io.wavfile import write, read
 
 from vc.Utils.ASR.models import ASRCNN
 from vc.Utils.JDC.model import JDCNet
@@ -23,7 +24,7 @@ from parallel_wavegan.utils import load_model
 # Source: https://github.com/jjery2243542/voice_conversion
 
 speakers = [225, 228, 229, 230, 231, 233, 236,
-            239, 240, 244, 226, 227, 232, 243, 400, 1]
+            239, 240, 244, 226, 227, 232, 243, 400, 6]
 
 to_mel = torchaudio.transforms.MelSpectrogram(
     n_mels=80, n_fft=2048, win_length=1200, hop_length=300)
@@ -117,12 +118,12 @@ class Inference:
 
 
         # load input wave
-        selected_speakers = [243, 244, 236, 233, 230, 228, 400, 1] 
+        selected_speakers = [243, 244, 236, 233, 230, 228, 400, 6] #TODO: self.user_id로 수정
         #k = random.choice(selected_speakers)
         #audio, source_sr = librosa.load(self.input_audio, sr=24000)
         audio = self.input_audio
-        audio = audio / np.max(np.abs(audio))
-        audio.dtype = np.float32
+        #audio = audio / np.max(np.abs(audio))
+        #audio.dtype = np.float32
 
         # with reference, using style encoder
         speaker_dicts = {}
@@ -136,7 +137,7 @@ class Inference:
         import time
         start = time.time()
 
-        source = self.preprocess(audio).to('cuda:0')
+        source = self.preprocess(audio).to('cuda:0')  #test 전: audio
         keys = []
         converted_samples = {}
         reconstructed_samples = {}
@@ -169,11 +170,14 @@ class Inference:
         end = time.time()
         print('total processing time: %.3f sec' % (end - start))
 
+        #return converted_samples['p'+str(self.user_id)]
+
         for key, wave in converted_samples.items():
             sf.write(output_path+"/converted_"+key+".wav", wave, 24000)
             if reconstructed_samples[key] is not None:
-                sf.write(output_path+"/reference_"+key+".wav",
-                         reconstructed_samples[key], 24000)
+                sf.write(output_path+"/reference_"+key+".wav", reconstructed_samples[key], 24000)
+
+        return converted_samples['p'+str(self.user_id)]
 
     #sf.write(output_path+"/original.wav", wav_path, 24000)
 
