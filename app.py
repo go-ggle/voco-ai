@@ -36,28 +36,34 @@ api = Api(app)
 def tts():
     #numpy array representing the audio data
     print("tts")
-    languages = ['en', 'en', 'ge', 'zh-CN', 'ja', 'fr', 'it', 'es', 'ar', 'ru', 'hi', 'id'] 
-    
+    domains = ['us', 'co.uk', 'co.in', 'es', 'fr']
+
     params = request.get_json()
-    language_id = int(params['language'])
-    language = languages[language_id]
-    text = params['text']
 
     user_id = int(params['voiceId'])
     team_id = request.args.get("teamId")
     project_id = request.args.get("projectId")
     block_id = request.args.get("blockId")
 
-    tts = gTTS(text=text, lang=language)
+    language_id = int(params['language'])
+    language = languages[language_id]
+    text = params['text']
+
+    if(language_id<5):
+        domain = domains[language_id]
+        tts = gTTS(text=text, lang=language, tld=domain)
+    else:
+        tts = gTTS(text=text, lang=language)
+
     filename = str(block_id) + ".wav"
     tts.save(str(filename))
-    
+
     audio, source_sr  = librosa.load(block_id + ".wav", sr=24000)
     audio = audio / np.max(np.abs(audio))
     audio.dtype = np.float32
     wave_audio = Inference(audio, user_id).inference()
     os.remove(str(block_id + '.wav'))
-    
+
     upload_file(wave_audio, user_id, team_id, project_id, block_id)
 
     #return wav file
