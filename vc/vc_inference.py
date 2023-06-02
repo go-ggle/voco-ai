@@ -19,12 +19,14 @@ import soundfile as sf
 import sys
 from parallel_wavegan.utils import load_model
 
+import os
 
 # Source: http://speech.ee.ntu.edu.tw/~jjery2243542/resource/model/is18/en_speaker_used.txt
 # Source: https://github.com/jjery2243542/voice_conversion
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-speakers = [225, 228, 229, 230, 231, 233, 236,
-            239, 240, 244, 226, 227, 232, 243, 400, 6]
+speakers = [225,228,229,230,231,233,236,239,1,244,226,227,232,243,254,256,258,5,270,273]
 
 to_mel = torchaudio.transforms.MelSpectrogram(
     n_mels=80, n_fft=2048, win_length=1200, hop_length=300)
@@ -39,6 +41,12 @@ class Inference:
     def __init__(self, input_audio, user_id):
         self.input_audio = input_audio
         self.user_id = user_id
+        if user_id == 3:  #민정이 아이디면 나 넣고 민정이 넣음
+            speakers.append(2)
+        speakers.append(user_id)
+        if user_id == 2:  #내 아이디이면 나 넣고 민정이 넣음
+            speakers.append(3)
+       # torch.backends.cudnn.enabled = False
 
     def preprocess(self, wave):
         wave_tensor = torch.from_numpy(wave).float()
@@ -102,7 +110,7 @@ class Inference:
         # load starganv2
         global starganv2
         model_path = 'vc/Models/p' + str(self.user_id) + '/epoch_00148.pth'
-        config_path = 'vc/Configs/config.yml'
+        config_path = 'vc/Configs/p' + str(self.user_id)  + '/config.yml'
 
         with open(config_path) as f:
             starganv2_config = yaml.safe_load(f)
@@ -118,7 +126,7 @@ class Inference:
 
 
         # load input wave
-        selected_speakers = [243, 244, 236, 233, 230, 228, 400, 6] #TODO: self.user_id로 수정
+        selected_speakers = [self.user_id] #TODO: 243, 244, 236, 233, 230, 228, self.user_id
         #k = random.choice(selected_speakers)
         #audio, source_sr = librosa.load(self.input_audio, sr=24000)
         audio = self.input_audio
@@ -176,7 +184,7 @@ class Inference:
             sf.write(output_path+"/converted_"+key+".wav", wave, 24000)
             if reconstructed_samples[key] is not None:
                 sf.write(output_path+"/reference_"+key+".wav", reconstructed_samples[key], 24000)
-
+        
         return converted_samples['p'+str(self.user_id)]
 
     #sf.write(output_path+"/original.wav", wav_path, 24000)

@@ -27,7 +27,7 @@ import wave
 from pydub import AudioSegment
 import numpy as np
 
-from storages import upload_file
+from storages import *
 
 app = Flask(__name__)
 api = Api(app)
@@ -36,79 +36,84 @@ api = Api(app)
 def tts():
     #numpy array representing the audio data
     print("tts")
-    languages = ['en', 'en', 'ge', 'zh-CN', 'ja', 'fr', 'it', 'es', 'ar', 'ru', 'hi', 'id'] 
-    
+    languages = ['en', 'en', 'en', 'es', 'fr', 'it', 'de', 'ru', 'ar', 'zh', 'ja', 'id'] 
+    domains = ['us', 'co.uk', 'co.in', 'es', 'fr']
+
     params = request.get_json()
-    language_id = int(params['language'])
-    language = languages[language_id]
-    text = params['text']
 
     user_id = int(params['voiceId'])
     team_id = request.args.get("teamId")
     project_id = request.args.get("projectId")
     block_id = request.args.get("blockId")
 
-    tts = gTTS(text=text, lang=language)
+    language_id = int(params['language'])
+    language = languages[language_id]
+    text = params['text']
+
+    if(language_id<5):
+        domain = domains[language_id]
+        tts = gTTS(text=text, lang=language, tld=domain)
+    else:
+        tts = gTTS(text=text, lang=language)
+
     filename = str(block_id) + ".wav"
     tts.save(str(filename))
-    
+
     audio, source_sr  = librosa.load(block_id + ".wav", sr=24000)
     audio = audio / np.max(np.abs(audio))
     audio.dtype = np.float32
     wave_audio = Inference(audio, user_id).inference()
     os.remove(str(block_id + '.wav'))
-    
+
     upload_file(wave_audio, user_id, team_id, project_id, block_id)
 
     #return wav file
     #return send_file(byte_io, mimetype="audio/x-wav")
     return send_file('vc/output_audio_dir/converted_p400.wav')
 
-
 @app.route("/put_data", methods=["POST"])
 def put_data():
     req = dict(request.files)
     audio = req['file']
+    user_id = request.args.get("userId")
+    text_id = request.args.get("textId")
+    
+    dir_path = './vc/Data/p' + str(user_id)
+    pcm_path = dir_path + '/' + str(text_id) + '.pcm'
+    wav_path = dir_path + '/' + str(text_id) + '.wav'
 
+    audio.save(pcm_path)
+    cmd = "ffmpeg -y -f s16le -ar 24k -ac 2 -i " + pcm_path + " " + wav_path
+    os.system(cmd)
+    os.remove(pcm_path)
+   
+    if not os.path.isdir(dir_path):
+        #data dir 생성
+        os.makedirs(dir_path, exist_ok=True)
+        shutil.copy('./vc/Data/train_list.txt', dir_path)
+        shutil.copy('./vc/Data/val_list.txt', dir_path)
+    
     #STT
     recognizer = sr.Recognizer()
 
-    with sr.AudioFile(audio) as source:
+    with sr.AudioFile(wav_path) as source:
         audio_text = recognizer.listen(source)
-    stt_text = recognizer.recognize_google(audio_text)
+    stt_text = recognizer.recognize_google(audio_text, show_all=True)
     print(stt_text)
-    text_id = request.args.get("textId")
     train_text = linecache.getline("train.txt", int(text_id))
     
+    if type(stt_text) is list:
+        return jsonify("유사도 통과 실패"), 205
+
     nlp = spacy.load("en_core_web_md")
-    doc1 = nlp(stt_text.lower())
+    doc1 = nlp(stt_text['alternative'][0]['transcript'].lower())
     doc2 = nlp(train_text.lower())
     similarity = doc1.similarity(doc2)
     print(similarity)
 
-    if similarity < 0.8:
+    if similarity < 0.1:
+        os.remove(wav_path)
         return jsonify("유사도 통과 몬함"), 205
-
-    user_id = request.args.get("userId")
-    save_path = './vc/Data/p' + str(user_id)
-
-    if not os.path.isdir(save_path):
-        #data dir 생성
-        os.makedirs(save_path, exist_ok=True)
-        shutil.copy('./vc/Data/train_list.txt', save_path)
-        shutil.copy('./vc/Data/val_list.txt', save_path)
-
-    audio.save(save_path + "/" + text_id + ".wav")
-    #s = io.BytesIO(audio.encode())
-
-    #data, samplerate = sf.read(io.BytesIO(au))
-    #sf.write(save_path + '/' + str(text_id) + '.wav', data, 24000)
-
-    #with open(save_path + '/' + str(text_id) + '.wav', mode='wb') as f:
-    #    f.write(audio)
-
-    #input = request.files['audio']
-    #input.save(save_path + '/' + str(text_id) + '.wav')
 
     response = {"textId": text_id}
     return jsonify(response), 200

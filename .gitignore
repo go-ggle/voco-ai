@@ -1,3 +1,15 @@
 models/
 tensorflow_tts/
 __pycache__/
+vc/__pycache__/
+vc/*.deb
+vc/Models/
+vc/Utils/ASR/
+vc/Utils/JDC/
+vc/Vocoder/
+vc/Demo/
+vc/rnnoise/
+nohup.out
+*.wav
+Anaconda3*
+rnnnoise/
